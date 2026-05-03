@@ -4,6 +4,7 @@ import AppShell from "@/components/cozy/AppShell";
 import { getHotel } from "@/data/hotels";
 import { useApp } from "@/context/AppContext";
 import { useState } from "react";
+import Room3DViewer from "@/components/cozy/Room3DViewer";
 
 const amenityIcons: Record<string, any> = {
   "Free Wi-Fi": Wifi, Pool: ShieldCheck, Breakfast: Coffee, Parking: Car, CCTV: Camera, "Verified Staff": BadgeCheck, Heating: Coffee,
@@ -104,6 +105,15 @@ export default function HotelDetails() {
           <div className="mt-4">
             <h3 className="font-semibold text-sm">About the property</h3>
             <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{hotel.description}</p>
+            {hotel.has360 && (
+              <div className="mt-5">
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="font-semibold text-sm">3D Room Preview</h3>
+                  <span className="chip bg-safety/10 text-safety">Real model</span>
+                </div>
+                <Room3DViewer />
+              </div>
+            )}
           </div>
         )}
         {tab === "Rooms" && (
