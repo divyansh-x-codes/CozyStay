@@ -10,8 +10,8 @@ import HotelDetails from "./pages/cozy/HotelDetails";
 import Booking from "./pages/cozy/Booking";
 import Confirmation from "./pages/cozy/Confirmation";
 import Bookings from "./pages/cozy/Bookings";
+import BookingDetails from "./pages/cozy/BookingDetails";
 import Favourites from "./pages/cozy/Favourites";
-import Inbox from "./pages/cozy/Inbox";
 import Profile from "./pages/cozy/Profile";
 import Auth from "./pages/cozy/Auth";
 import Safety from "./pages/cozy/Safety";
@@ -39,8 +39,9 @@ const App = () => (
             <Route path="/booking/:id" element={<Booking />} />
             <Route path="/confirmation/:id" element={<Confirmation />} />
             <Route path="/bookings" element={<Bookings />} />
+            <Route path="/bookings/:id" element={<BookingDetails />} />
             <Route path="/favourites" element={<Favourites />} />
-            <Route path="/inbox" element={<Inbox />} />
+            <Route path="/favourites" element={<Favourites />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/safety" element={<Safety />} />
             <Route path="/admin" element={<Admin />}>

@@ -1,38 +1,65 @@
-import { useNavigate, useParams } from "react-router-dom";
-import { ChevronLeft, BadgeCheck, ShieldCheck, CreditCard, Smartphone, Building2, Lock } from "lucide-react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { ChevronLeft, BadgeCheck, ShieldCheck, CreditCard, Smartphone, Building2, Lock, X, Smartphone as PhoneIcon, Wallet, ChevronRight, Upload } from "lucide-react";
 import AppShell from "@/components/cozy/AppShell";
 import { getHotel } from "@/data/hotels";
 import { useApp } from "@/context/AppContext";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Booking() {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const hotel = getHotel(id || "");
   const { user, addBooking, search } = useApp();
+  
   const [step, setStep] = useState(1);
-  const [name, setName] = useState(user?.name || "");
-  const [phone, setPhone] = useState(user?.phone || "");
-  const [email, setEmail] = useState(user?.email || "");
-  const [minor, setMinor] = useState(false);
-  const [pay, setPay] = useState<"upi" | "card" | "net">("upi");
+  const [minor, setMinor] = useState(searchParams.get("minor") === "true");
+  const [selectedIdType, setSelectedIdType] = useState("Aadhaar Card");
+  const [paymentMethod, setPaymentMethod] = useState("UPI");
+  
+  // Form State
+  const [formData, setFormData] = useState({
+    name: user?.name || "",
+    phone: user?.phone || "",
+    email: user?.email || "",
+    emergency: "",
+    guardianName: "",
+    guardianRel: "",
+    guardianPhone: "",
+    minorName: "",
+    minorDOB: "",
+  });
+
   const [idUploaded, setIdUploaded] = useState(false);
-  const [faceVerified, setFaceVerified] = useState(false);
-  const [guardianName, setGuardianName] = useState("");
-  const [guardianRel, setGuardianRel] = useState("Parent");
-  const [guardianIdUploaded, setGuardianIdUploaded] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
 
   if (!hotel) return null;
-  const taxes = Math.round(hotel.price * 0.18);
-  const original = Math.round(hotel.price * 1.25);
+  const taxes = Math.round(hotel.price * 0.12);
   const total = hotel.price + taxes;
 
-  const next = () => setStep((s) => s + 1);
-  const back = () => (step === 1 ? navigate(-1) : setStep((s) => s - 1));
+  const next = () => {
+    if (step === 2 && !minor) {
+      setStep(4); // Skip guardian for adults
+    } else {
+      setStep((s) => s + 1);
+    }
+  };
+  
+  const back = () => {
+    if (step === 4 && !minor) {
+      setStep(2);
+    } else if (step === 1) {
+      navigate(-1);
+    } else {
+      setStep((s) => s - 1);
+    }
+  };
 
   const confirm = () => {
+    const bookingId = "COZYSTAY" + Math.floor(Math.random() * 900000 + 100000);
     addBooking({
-      id: "CS" + Math.floor(Math.random() * 90000000 + 10000000),
+      id: bookingId,
       hotelId: hotel.id,
       hotelName: hotel.name,
       hotelImage: hotel.image,
@@ -43,196 +70,311 @@ export default function Booking() {
       total,
       status: "Upcoming",
     });
-    navigate(`/confirmation/${hotel.id}`);
+    navigate(`/confirmation/${hotel.id}?bookingId=${bookingId}&amount=${total}`);
   };
+
+  const stepTitles = [
+    "Booking Summary",
+    "Verify your ID",
+    "Booking for a minor",
+    "Payment"
+  ];
 
   return (
     <AppShell hideNav>
-      <header className="px-4 py-3 flex items-center gap-3 border-b border-border">
-        <button onClick={back} className="h-9 w-9 grid place-items-center rounded-full hover:bg-secondary"><ChevronLeft className="h-5 w-5" /></button>
-        <h1 className="font-display font-semibold flex-1">
-          {step === 1 ? "Booking Details" : step === 2 ? "Verification" : "Payment"}
-        </h1>
-        <span className="text-xs text-muted-foreground">Step {step} of 3</span>
-      </header>
+      <div className="min-h-screen bg-[#f8fafc]">
+        {/* Header */}
+        <header className="px-4 py-4 flex items-center gap-3">
+          <button onClick={back} className="h-9 w-9 grid place-items-center rounded-full hover:bg-white transition-colors">
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <div className="flex-1">
+            <div className="flex gap-1 mb-1">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className={`h-1 flex-1 rounded-full transition-colors duration-500 ${i <= step ? "bg-primary" : "bg-muted"}`} />
+              ))}
+            </div>
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+              Step {step} of 4 · <span className="text-foreground">{stepTitles[step - 1]}</span>
+            </p>
+          </div>
+        </header>
 
-      <div className="px-5 py-5 pb-32">
-        {step === 1 && (
-          <div className="space-y-5">
-            {/* Booking Summary */}
-            <div className="card-soft overflow-hidden">
-              <div className="flex gap-3 p-3">
-                <img src={hotel.image} className="h-24 w-24 rounded-2xl object-cover" alt={hotel.name} />
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-sm truncate">{hotel.name}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">{hotel.location}</p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <span className="font-bold text-lg">₹{hotel.price.toLocaleString()}</span>
-                    <span className="text-xs text-muted-foreground line-through">₹{original.toLocaleString()}</span>
-                    <span className="chip bg-safety/10 text-safety">Lowest price</span>
+        <main className="px-4 pb-24">
+          <AnimatePresence mode="wait">
+            <motion.div 
+              key={step}
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+              className="bg-white rounded-[32px] p-6 shadow-sm border border-border/50"
+            >
+              {/* Step 1: Summary */}
+              {step === 1 && (
+                <div className="space-y-6">
+                  <div className="relative h-48 -mx-6 -mt-6 mb-6 overflow-hidden rounded-t-[32px]">
+                    <img src={hotel.image} className="w-full h-full object-cover" alt={hotel.name} />
+                    <div className="absolute top-4 right-4 flex gap-2">
+                      <button className="h-9 w-9 grid place-items-center rounded-full bg-white/90 backdrop-blur"><Share2 className="h-4 w-4" /></button>
+                      <button className="h-9 w-9 grid place-items-center rounded-full bg-white/90 backdrop-blur text-danger"><Heart className="h-4 w-4 fill-danger" /></button>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h2 className="text-2xl font-bold font-display">{hotel.name}</h2>
+                    <p className="text-sm text-muted-foreground">{hotel.location} · Beachfront</p>
+                    <div className="flex items-center gap-2 mt-2">
+                      <Star className="h-4 w-4 fill-accent text-accent" />
+                      <span className="text-sm font-bold">{hotel.rating}</span>
+                      <span className="text-xs text-muted-foreground">(1.2K reviews)</span>
+                      <span className="ml-auto chip bg-safety/10 text-safety px-2.5 py-1">Verified Safe</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-baseline gap-2 pt-2 border-t border-border/50">
+                    <span className="text-2xl font-bold">₹{hotel.price.toLocaleString()}</span>
+                    <span className="text-sm text-muted-foreground line-through">₹5,800</span>
+                    <span className="ml-auto chip bg-[#16a34a] text-white px-3 py-1 font-bold text-[10px]">Lowest price</span>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground -mt-4">per night · all taxes included</p>
+
+                  <div className="grid grid-cols-2 gap-4 py-4 border-y border-border/50">
+                    <div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Check In</p>
+                      <p className="font-bold text-sm">29 Apr, 2025</p>
+                      <p className="text-[10px] text-muted-foreground">Tuesday</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Check Out</p>
+                      <p className="font-bold text-sm">30 Apr, 2025</p>
+                      <p className="text-[10px] text-muted-foreground">Wednesday</p>
+                    </div>
+                  </div>
+
+                  <button className="w-full flex items-center justify-between py-1">
+                    <div className="text-left">
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Guests & Room</p>
+                      <p className="font-bold text-sm">2 Guests · 1 Room</p>
+                    </div>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  </button>
+
+                  <div className="flex items-center justify-between p-4 bg-secondary/30 rounded-2xl border border-border/50">
+                    <div>
+                      <p className="text-sm font-bold">Booking for a minor</p>
+                      <p className="text-[11px] text-muted-foreground">Adds guardian verification step</p>
+                    </div>
+                    <button 
+                      onClick={() => setMinor(!minor)}
+                      className={`relative h-6 w-11 rounded-full transition-colors ${minor ? "bg-accent" : "bg-muted"}`}
+                    >
+                      <div className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-all ${minor ? "right-1" : "left-1"}`} />
+                    </button>
+                  </div>
+
+                  <button onClick={next} className="w-full h-14 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center gap-2 shadow-xl shadow-primary/20">
+                    Continue to verify <ChevronRight className="h-4 w-4" />
+                  </button>
+                  <p className="text-center text-[11px] text-muted-foreground">You won't be charged until your ID is verified.</p>
+                </div>
+              )}
+
+              {/* Step 2: Adult ID Verification */}
+              {step === 2 && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold font-display">Verify your ID</h2>
+                  <p className="text-sm text-muted-foreground">This helps us ensure a safe stay for everyone.</p>
+
+                  <div className="space-y-3">
+                    {[
+                      { id: "Aadhaar Card", desc: "Recommended", icon: Smartphone },
+                      { id: "PAN Card", desc: "", icon: CreditCard },
+                      { id: "Driving License", desc: "", icon: Car },
+                      { id: "Passport", desc: "", icon: Building2 },
+                    ].map((type) => (
+                      <button 
+                        key={type.id} 
+                        onClick={() => setSelectedIdType(type.id)}
+                        className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all ${selectedIdType === type.id ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/30"}`}
+                      >
+                        <div className={`h-10 w-10 rounded-xl grid place-items-center ${selectedIdType === type.id ? "bg-primary text-white" : "bg-secondary text-muted-foreground"}`}>
+                          <type.icon className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1 text-left">
+                          <p className="text-sm font-bold">{type.id}</p>
+                          {type.desc && <p className="text-[10px] text-muted-foreground">{type.desc}</p>}
+                        </div>
+                        <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center ${selectedIdType === type.id ? "border-primary bg-primary" : "border-muted"}`}>
+                          {selectedIdType === type.id && <div className="h-2 w-2 rounded-full bg-white" />}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Upload ID Front</p>
+                    <button 
+                      onClick={() => setIdUploaded(true)}
+                      className={`w-full aspect-video rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all ${idUploaded ? "border-safety bg-safety/5 text-safety" : "border-border bg-secondary/50 text-muted-foreground hover:bg-secondary"}`}
+                    >
+                      <Upload className={`h-6 w-6 ${idUploaded ? "text-safety" : "text-muted-foreground"}`} />
+                      <p className="text-sm font-bold">{idUploaded ? "ID Uploaded ✓" : "Tap to upload"}</p>
+                      <p className="text-[10px] opacity-60">JPG, PNG or PDF (Max 5MB)</p>
+                    </button>
+                  </div>
+
+                  <button onClick={next} disabled={!idUploaded} className="w-full h-14 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center gap-2 shadow-xl shadow-primary/20 disabled:opacity-40">
+                    Continue <ChevronRight className="h-4 w-4" />
+                  </button>
+
+                  <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
+                    <Lock className="h-3 w-3" />
+                    Your data is 100% secure and never shared with third parties.
                   </div>
                 </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2 p-3 pt-0">
-                <ReadOnly label="Check-in" value={search.checkIn} />
-                <ReadOnly label="Check-out" value={search.checkOut} />
-              </div>
-              <button
-                onClick={() => setMinor(!minor)}
-                className="w-full flex items-center justify-between px-4 py-3 border-t border-border"
-              >
-                <div className="text-left">
-                  <p className="text-sm font-semibold">Booking for a minor?</p>
-                  <p className="text-[11px] text-muted-foreground">Guardian verification required</p>
+              )}
+
+              {/* Step 3: Minor + Guardian */}
+              {step === 3 && (
+                <div className="space-y-6">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-2xl font-bold font-display">Booking for a minor</h2>
+                    <button onClick={() => setMinor(false)} className="h-6 w-11 rounded-full bg-accent relative">
+                      <div className="absolute top-1 right-1 h-4 w-4 rounded-full bg-white" />
+                    </button>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-safety/10 text-safety flex items-start gap-3">
+                    <ShieldCheck className="h-4 w-4 shrink-0 mt-0.5" />
+                    <p className="text-[11px] font-medium">Guardian verification is required to complete this booking.</p>
+                  </div>
+
+                  <div className="space-y-4">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Minor Details</p>
+                    <Input label="MINOR NAME" placeholder="Enter minor full name" value={formData.minorName} onChange={(v) => setFormData({...formData, minorName: v})} />
+                    <div className="grid grid-cols-2 gap-4">
+                      <Input label="DATE OF BIRTH" placeholder="DD / MM / YYYY" value={formData.minorDOB} onChange={(v) => setFormData({...formData, minorDOB: v})} />
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-bold text-muted-foreground uppercase ml-1">AGE</label>
+                        <div className="w-full h-[52px] px-4 rounded-2xl bg-[#f8fafc] border border-border/50 flex items-center text-sm font-medium text-muted-foreground/40">--</div>
+                      </div>
+                    </div>
+
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pt-4">Guardian Details</p>
+                    <Input label="GUARDIAN NAME" placeholder="Enter guardian full name" value={formData.guardianName} onChange={(v) => setFormData({...formData, guardianName: v})} />
+                    <Input label="RELATIONSHIP WITH MINOR" placeholder="Select relationship" value={formData.guardianRel} onChange={(v) => setFormData({...formData, guardianRel: v})} />
+                    <Input label="GUARDIAN MOBILE NUMBER" placeholder="+91 Enter mobile number" value={formData.guardianPhone} onChange={(v) => setFormData({...formData, guardianPhone: v})} />
+
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider pt-2">Upload Guardian ID</p>
+                    <button 
+                      onClick={() => setOtpSent(true)}
+                      className={`w-full aspect-video rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all border-border bg-secondary/50 text-muted-foreground hover:bg-secondary`}
+                    >
+                      <Upload className="h-6 w-6" />
+                      <p className="text-sm font-bold">Tap to upload</p>
+                      <p className="text-[10px] opacity-60">JPG, PNG or PDF (Max 5MB)</p>
+                    </button>
+                  </div>
+
+                  <button onClick={next} className="w-full h-14 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center gap-2 shadow-xl shadow-primary/20">
+                    Continue <ChevronRight className="h-4 w-4" />
+                  </button>
                 </div>
-                <span className={`relative h-6 w-11 rounded-full transition-colors ${minor ? "bg-accent" : "bg-border"}`}>
-                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-card transition-all ${minor ? "left-5" : "left-0.5"}`} />
-                </span>
-              </button>
-            </div>
+              )}
 
-            <Section title="Guest Details">
-              <Field label="Full Name" value={name} onChange={setName} />
-              <Field label="Phone Number" value={phone} onChange={setPhone} />
-              <Field label="Email Address" value={email} onChange={setEmail} />
-            </Section>
-          </div>
-        )}
+              {/* Step 4: Payment */}
+              {step === 4 && (
+                <div className="space-y-6">
+                  <h2 className="text-2xl font-bold font-display">Payment</h2>
+                  <div className="flex items-center gap-1.5 text-[#16a34a] text-xs font-bold">
+                    <ShieldCheck className="h-4 w-4" /> Your payment is secure
+                  </div>
 
-        {step === 2 && (
-          <div className="space-y-4">
-            <div className="card-soft p-4 flex items-start gap-3">
-              <div className="h-10 w-10 rounded-xl bg-safety/10 grid place-items-center"><BadgeCheck className="h-5 w-5 text-safety" /></div>
-              <div className="flex-1">
-                <p className="font-semibold text-sm text-safety">{minor ? "Guardian + Guest Verification" : "Identity Verification"}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Government-grade identity check keeps every stay safe.</p>
-              </div>
-              <ShieldCheck className="h-5 w-5 text-safety" />
-            </div>
+                  <div className="space-y-3 pt-2">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Price Details</p>
+                    <div className="space-y-4">
+                      <Row label="Room Rate (1 Night)" value={`₹${hotel.price.toLocaleString()}`} />
+                      <Row label="Taxes & Fees" value="Included" />
+                      <Row label="SafeStay Safety Fee" value="Free" />
+                      <div className="pt-4 border-t border-border flex justify-between items-baseline">
+                        <p className="text-lg font-bold">Total Amount</p>
+                        <p className="text-2xl font-bold">₹{total.toLocaleString()}</p>
+                      </div>
+                    </div>
+                  </div>
 
-            <Section title="ID Upload">
-              <button
-                onClick={() => setIdUploaded(true)}
-                className={`w-full p-4 rounded-2xl border-2 border-dashed text-sm font-medium transition-colors ${idUploaded ? "border-safety bg-safety/5 text-safety" : "border-border bg-secondary text-muted-foreground"}`}
-              >
-                {idUploaded ? "✓ Aadhaar / DigiLocker verified" : "Tap to upload ID (simulated)"}
-              </button>
-            </Section>
-            <Section title="Face Verification">
-              <button
-                onClick={() => setFaceVerified(true)}
-                disabled={!idUploaded}
-                className={`w-full p-4 rounded-2xl border-2 border-dashed text-sm font-medium transition-colors disabled:opacity-50 ${faceVerified ? "border-safety bg-safety/5 text-safety" : "border-border bg-secondary text-muted-foreground"}`}
-              >
-                {faceVerified ? "✓ Face matched with ID" : "Tap to start face scan"}
-              </button>
-            </Section>
-
-            {minor && (
-              <>
-                <div className="card-soft bg-accent/10 p-3 text-xs font-medium text-primary">
-                  Minor booking — guardian must complete verification.
-                </div>
-                <Section title="Guardian Details">
-                  <Field label="Guardian Full Name" value={guardianName} onChange={setGuardianName} />
-                  <div className="p-3 rounded-2xl bg-secondary">
-                    <p className="text-[11px] text-muted-foreground mb-2">Relationship</p>
-                    <div className="flex gap-2 flex-wrap">
-                      {["Parent", "Sibling", "Relative", "Legal Guardian"].map((r) => (
-                        <button key={r} onClick={() => setGuardianRel(r)} className={`chip ${guardianRel === r ? "bg-primary text-primary-foreground" : "bg-card border border-border"}`}>{r}</button>
+                  <div className="space-y-3 pt-6">
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Select Payment Method</p>
+                    <div className="space-y-3">
+                      {[
+                        { id: "UPI", icon: Smartphone, desc: "Pay using any UPI app", logo: "https://upload.wikimedia.org/wikipedia/commons/e/e1/UPI-Logo-vector.svg" },
+                        { id: "Credit / Debit Card", icon: CreditCard, desc: "Visa, Mastercard, Rupay" },
+                        { id: "Net Banking", icon: Building2, desc: "All major banks" },
+                        { id: "Wallets", icon: Wallet, desc: "Paytm, PhonePe, Amazon Pay" },
+                      ].map((method) => (
+                        <button 
+                          key={method.id} 
+                          onClick={() => setPaymentMethod(method.id)}
+                          className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all ${paymentMethod === method.id ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/30"}`}
+                        >
+                          <div className={`h-10 w-10 rounded-xl grid place-items-center ${paymentMethod === method.id ? "bg-primary text-white" : "bg-secondary text-muted-foreground"}`}>
+                            {method.logo ? <img src={method.logo} className="h-4 w-auto" alt="" /> : <method.icon className="h-5 w-5" />}
+                          </div>
+                          <div className="flex-1 text-left">
+                            <p className="text-sm font-bold">{method.id}</p>
+                            <p className="text-[10px] text-muted-foreground">{method.desc}</p>
+                          </div>
+                          <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center ${paymentMethod === method.id ? "border-primary bg-primary" : "border-muted"}`}>
+                            {paymentMethod === method.id && <div className="h-2 w-2 rounded-full bg-white" />}
+                          </div>
+                        </button>
                       ))}
                     </div>
                   </div>
-                  <button
-                    onClick={() => setGuardianIdUploaded(true)}
-                    className={`w-full p-4 rounded-2xl border-2 border-dashed text-sm font-medium transition-colors ${guardianIdUploaded ? "border-safety bg-safety/5 text-safety" : "border-border bg-secondary text-muted-foreground"}`}
-                  >
-                    {guardianIdUploaded ? "✓ Guardian ID verified" : "Upload guardian ID"}
-                  </button>
-                </Section>
-              </>
-            )}
 
-            {(faceVerified && (!minor || (guardianName && guardianIdUploaded))) && (
-              <div className="card-soft bg-safety/10 p-4 flex items-center gap-3">
-                <BadgeCheck className="h-5 w-5 text-safety" />
-                <p className="text-sm font-semibold text-safety">{minor ? "Guardian Verified ✓" : "Identity Verified ✓"}</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="space-y-5">
-            <Section title="Price Details">
-              <Row label={`Room Price (1 Night)`} value={`₹${hotel.price.toLocaleString()}`} />
-              <Row label="Taxes & Fees" value={`₹${taxes.toLocaleString()}`} />
-              <Row label="CozyStay Safety Fee" value="FREE" valueClass="text-safety font-semibold" />
-              <div className="border-t border-border my-2" />
-              <Row label="Total Amount" value={`₹${total.toLocaleString()}`} bold />
-            </Section>
-            <Section title="Payment Methods">
-              {[
-                { id: "upi", label: "UPI", icon: Smartphone },
-                { id: "card", label: "Credit / Debit Card", icon: CreditCard },
-                { id: "net", label: "Net Banking", icon: Building2 },
-              ].map((p) => (
-                <button key={p.id} onClick={() => setPay(p.id as any)} className="w-full flex items-center gap-3 p-3 rounded-2xl bg-secondary mb-2">
-                  <p.icon className="h-5 w-5" />
-                  <span className="flex-1 text-left text-sm font-medium">{p.label}</span>
-                  <span className={`h-4 w-4 rounded-full border-2 ${pay === p.id ? "border-primary bg-primary" : "border-border"}`} />
-                </button>
-              ))}
-            </Section>
-          </div>
-        )}
-      </div>
-
-      <div className="fixed bottom-0 inset-x-0 z-30">
-        <div className="mx-auto max-w-[480px] bg-card border-t border-border p-4">
-          <button
-            onClick={step === 3 ? confirm : next}
-            disabled={step === 2 && (!faceVerified || (minor && (!guardianName || !guardianIdUploaded)))}
-            className="w-full h-12 rounded-full bg-primary text-primary-foreground font-semibold flex items-center justify-center gap-2 disabled:opacity-40"
-          >
-            {step === 3 && <Lock className="h-4 w-4" />}
-            {step === 1 ? "Continue to Verify" : step === 2 ? "Continue to Payment" : `Pay ₹${total.toLocaleString()} Securely`}
-          </button>
-        </div>
+                  <div className="pt-4 space-y-4">
+                    <button onClick={confirm} className="w-full h-14 rounded-full bg-primary text-primary-foreground font-bold shadow-xl shadow-primary/20 text-lg">
+                      Pay ₹{total.toLocaleString()}
+                    </button>
+                    <p className="text-center text-[10px] text-muted-foreground px-4 leading-relaxed">
+                      By continuing, you agree to our <span className="underline font-bold text-foreground">Terms & Conditions</span> and <span className="underline font-bold text-foreground">Privacy Policy</span>.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </AnimatePresence>
+        </main>
       </div>
     </AppShell>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Input({ label, placeholder, value, onChange }: { label: string; placeholder: string; value: string; onChange: (v: string) => void }) {
   return (
-    <div>
-      <p className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold mb-2">{title}</p>
-      <div className="space-y-2">{children}</div>
+    <div className="space-y-1.5">
+      <label className="text-[10px] font-bold text-muted-foreground tracking-wider uppercase ml-1">{label}</label>
+      <input 
+        type="text" 
+        placeholder={placeholder}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full h-[52px] px-4 rounded-2xl bg-[#f8fafc] border border-border/50 focus:border-primary/30 focus:ring-4 focus:ring-primary/5 outline-none transition-all text-[15px] font-medium placeholder:text-muted-foreground/40"
+      />
     </div>
   );
 }
-function Field({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+
+function Row({ label, value }: { label: string; value: string }) {
   return (
-    <label className="block p-3 rounded-2xl bg-secondary">
-      <span className="text-[11px] text-muted-foreground">{label}</span>
-      <input value={value} onChange={(e) => onChange(e.target.value)} className="w-full bg-transparent outline-none text-sm font-medium mt-0.5" />
-    </label>
-  );
-}
-function ReadOnly({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="p-3 rounded-2xl bg-secondary">
-      <p className="text-[11px] text-muted-foreground">{label}</p>
-      <p className="text-sm font-semibold mt-0.5">{value}</p>
+    <div className="flex justify-between items-center text-sm">
+      <p className="text-muted-foreground font-medium">{label}</p>
+      <p className="font-bold">{value}</p>
     </div>
   );
 }
-function Row({ label, value, bold, valueClass }: { label: string; value: string; bold?: boolean; valueClass?: string }) {
-  return (
-    <div className={`flex items-center justify-between text-sm ${bold ? "font-bold" : ""}`}>
-      <span className={bold ? "" : "text-muted-foreground"}>{label}</span>
-      <span className={valueClass}>{value}</span>
-    </div>
-  );
-}
+
+function Share2(props: any) { return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>; }
+function Star(props: any) { return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>; }
+function Heart(props: any) { return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>; }
+function Car(props: any) { return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9C2.1 11.6 2 11.8 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>; }

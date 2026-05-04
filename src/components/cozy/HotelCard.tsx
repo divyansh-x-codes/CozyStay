@@ -2,14 +2,19 @@ import { Link } from "react-router-dom";
 import { Heart, Star, ShieldCheck } from "lucide-react";
 import { Hotel } from "@/data/hotels";
 import { useApp } from "@/context/AppContext";
+import Room3DViewer from "./Room3DViewer";
 
 export default function HotelCard({ hotel, compact = false }: { hotel: Hotel; compact?: boolean }) {
   const { favourites, toggleFavourite } = useApp();
   const fav = favourites.includes(hotel.id);
   return (
     <Link to={`/hotel/${hotel.id}`} className={`block group ${compact ? "w-[200px] shrink-0" : "w-full"}`}>
-      <div className="relative overflow-hidden rounded-[var(--radius)] shadow-soft">
-        <img src={hotel.image} alt={hotel.name} loading="lazy" className="w-full h-44 object-cover group-hover:scale-105 transition-transform duration-500" />
+      <div className="relative overflow-hidden rounded-[var(--radius)] shadow-soft h-44 bg-secondary">
+        {hotel.has360 ? (
+          <Room3DViewer imageUrl={hotel.image} sketchfabId={hotel.sketchfabId} hideButton simple />
+        ) : (
+          <img src={hotel.image} alt={hotel.name} loading="lazy" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+        )}
         <button
           onClick={(e) => { e.preventDefault(); toggleFavourite(hotel.id); }}
           className="absolute top-2.5 right-2.5 h-8 w-8 rounded-full bg-card/90 grid place-items-center"

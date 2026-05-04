@@ -23,25 +23,28 @@ export default function HotelDetails() {
 
   return (
     <AppShell hideNav>
-      <div className="relative">
-        <img src={hotel.images[imgIdx]} alt={hotel.name} className="w-full h-72 object-cover" />
-        <div className="absolute inset-x-0 top-0 p-4 flex items-center justify-between">
-          <button onClick={() => navigate(-1)} className="h-10 w-10 grid place-items-center rounded-full bg-card/90 backdrop-blur"><ChevronLeft className="h-5 w-5" /></button>
-          <div className="flex gap-2">
+      <div className="relative h-72">
+        {hotel.has360 ? (
+          <Room3DViewer imageUrl={hotel.images[imgIdx]} sketchfabId={hotel.sketchfabId} hideButton heroMode />
+        ) : (
+          <img src={hotel.images[imgIdx]} alt={hotel.name} className="w-full h-full object-cover" />
+        )}
+        <div className="absolute inset-x-0 top-0 p-4 flex items-center justify-between z-20 pointer-events-none">
+          <button onClick={() => navigate(-1)} className="h-10 w-10 grid place-items-center rounded-full bg-card/90 backdrop-blur pointer-events-auto"><ChevronLeft className="h-5 w-5" /></button>
+          <div className="flex gap-2 pointer-events-auto">
             <button className="h-10 w-10 grid place-items-center rounded-full bg-card/90"><Share2 className="h-4 w-4" /></button>
             <button onClick={() => toggleFavourite(hotel.id)} className="h-10 w-10 grid place-items-center rounded-full bg-card/90">
               <Heart className={`h-4 w-4 ${fav ? "fill-danger text-danger" : ""}`} />
             </button>
           </div>
         </div>
-        <div className="absolute bottom-3 right-3 chip bg-primary/80 text-primary-foreground">
-          {imgIdx + 1}/{hotel.images.length}
-        </div>
-        <div className="absolute bottom-3 left-3 flex gap-1.5">
-          {hotel.images.map((_, i) => (
-            <button key={i} onClick={() => setImgIdx(i)} className={`h-1.5 rounded-full transition-all ${i === imgIdx ? "w-6 bg-card" : "w-1.5 bg-card/60"}`} />
-          ))}
-        </div>
+        {!hotel.sketchfabId && (
+          <div className="absolute bottom-3 left-3 flex gap-1.5 z-20">
+            {hotel.images.map((_, i) => (
+              <button key={i} onClick={() => setImgIdx(i)} className={`h-1.5 rounded-full transition-all ${i === imgIdx ? "w-6 bg-card" : "w-1.5 bg-card/60"}`} />
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="px-5 pt-5 pb-32">
@@ -105,15 +108,6 @@ export default function HotelDetails() {
           <div className="mt-4">
             <h3 className="font-semibold text-sm">About the property</h3>
             <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{hotel.description}</p>
-            {hotel.has360 && (
-              <div className="mt-5">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="font-semibold text-sm">3D Room Preview</h3>
-                  <span className="chip bg-safety/10 text-safety">Real model</span>
-                </div>
-                <Room3DViewer />
-              </div>
-            )}
           </div>
         )}
         {tab === "Rooms" && (
@@ -163,7 +157,7 @@ export default function HotelDetails() {
             <p className="font-bold text-lg">₹{hotel.price.toLocaleString()} <span className="text-xs font-normal text-muted-foreground">/ night</span></p>
             <p className="text-[11px] text-muted-foreground">Includes all taxes</p>
           </div>
-          <button onClick={() => navigate(`/booking/${hotel.id}`)} className="h-12 px-6 rounded-full bg-accent text-accent-foreground font-semibold">
+          <button onClick={() => navigate(`/booking/${hotel.id}`)} className="h-12 px-8 rounded-full bg-accent text-primary font-bold shadow-lg shadow-accent/20 active:scale-95 transition-all">
             Select Room
           </button>
         </div>
