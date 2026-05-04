@@ -16,7 +16,7 @@ const features = [
   { icon: BadgeCheck, label: "ID Verified", color: "bg-accent/15 text-accent" },
 ];
 
-const locations = ["Mumbai, Maharashtra", "Delhi, NCR", "Jaipur, Rajasthan", "Goa, India", "Munnar, Kerala", "Udaipur, Rajasthan", "Rishikesh, Uttarakhand", "Bangalore, Karnataka"];
+const locations = ["Mumbai, Maharashtra", "Delhi, NCR", "Jaipur, Rajasthan", "Goa, India", "Munnar, Kerala", "Udaipur, Rajasthan", "Rishikesh, Uttarakhand", "Bangalore, Karnataka", "Manali, Himachal"];
 
 export default function Home() {
   const { search, setSearch } = useApp();
