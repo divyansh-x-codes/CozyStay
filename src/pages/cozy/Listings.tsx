@@ -50,7 +50,7 @@ export default function Listings() {
             <div key={h.id} className="block card-soft overflow-hidden relative">
               <div className="relative h-44 bg-secondary">
                 {h.has360 ? (
-                  <Room3DViewer imageUrl={h.image} hideButton simple />
+                  <Room3DViewer imageUrl={h.image} sketchfabId={h.sketchfabId} hideButton simple />
                 ) : (
                   <img src={h.image} alt={h.name} loading="lazy" className="w-full h-full object-cover" />
                 )}
