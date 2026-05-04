@@ -1,5 +1,5 @@
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ChevronLeft, BadgeCheck, ShieldCheck, CreditCard, Smartphone, Building2, Lock, X, Smartphone as PhoneIcon, Wallet, ChevronRight, Upload } from "lucide-react";
+import { ChevronLeft, BadgeCheck, ShieldCheck, CreditCard, Smartphone, Building2, Lock, X, Smartphone as PhoneIcon, Wallet, ChevronRight, Upload, Users, Calendar, Heart, Star } from "lucide-react";
 import AppShell from "@/components/cozy/AppShell";
 import { getHotel } from "@/data/hotels";
 import { useApp } from "@/context/AppContext";
@@ -17,6 +17,7 @@ export default function Booking() {
   const [minor, setMinor] = useState(searchParams.get("minor") === "true");
   const [selectedIdType, setSelectedIdType] = useState("Aadhaar Card");
   const [paymentMethod, setPaymentMethod] = useState("UPI");
+  const [digiLockerStatus, setDigiLockerStatus] = useState<"idle" | "verifying" | "success">("idle");
   
   // Form State
   const [formData, setFormData] = useState({
@@ -33,6 +34,14 @@ export default function Booking() {
 
   const [idUploaded, setIdUploaded] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
+
+  const startDigiLocker = () => {
+    setDigiLockerStatus("verifying");
+    setTimeout(() => {
+      setDigiLockerStatus("success");
+      setIdUploaded(true);
+    }, 2000);
+  };
 
   if (!hotel) return null;
   const taxes = Math.round(hotel.price * 0.12);
@@ -179,58 +188,169 @@ export default function Booking() {
                 </div>
               )}
 
-              {/* Step 2: Adult ID Verification */}
+              {/* Step 2: DigiLocker ID Verification */}
               {step === 2 && (
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold font-display">Verify your ID</h2>
-                  <p className="text-sm text-muted-foreground">This helps us ensure a safe stay for everyone.</p>
+                  
+                  {digiLockerStatus === "idle" && (
+                    <>
+                      <p className="text-sm text-muted-foreground -mt-4">
+                        We use DigiLocker to instantly verify your identity. It's secure, fast and paperless.
+                      </p>
+                      
+                      <div className="bg-[#6366f1]/5 border border-[#6366f1]/10 rounded-[32px] p-6 space-y-6">
+                        <div className="flex items-center gap-4">
+                          <div className="h-14 w-14 rounded-2xl bg-white shadow-sm flex items-center justify-center p-2.5">
+                            <img src="https://upload.wikimedia.org/wikipedia/en/thumb/1/1a/DigiLocker_logo.svg/1200px-DigiLocker_logo.svg.png" alt="DigiLocker" className="w-full h-auto" />
+                          </div>
+                          <div>
+                            <h3 className="font-bold text-[#6366f1] text-lg">DigiLocker</h3>
+                            <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wider">Government of India</p>
+                          </div>
+                        </div>
 
-                  <div className="space-y-3">
-                    {[
-                      { id: "Aadhaar Card", desc: "Recommended", icon: Smartphone },
-                      { id: "PAN Card", desc: "", icon: CreditCard },
-                      { id: "Driving License", desc: "", icon: Car },
-                      { id: "Passport", desc: "", icon: Building2 },
-                    ].map((type) => (
-                      <button 
-                        key={type.id} 
-                        onClick={() => setSelectedIdType(type.id)}
-                        className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition-all ${selectedIdType === type.id ? "border-primary bg-primary/5 ring-1 ring-primary" : "border-border hover:border-primary/30"}`}
-                      >
-                        <div className={`h-10 w-10 rounded-xl grid place-items-center ${selectedIdType === type.id ? "bg-primary text-white" : "bg-secondary text-muted-foreground"}`}>
-                          <type.icon className="h-5 w-5" />
+                        <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 text-green-600 rounded-full w-fit">
+                          <ShieldCheck className="h-3.5 w-3.5" />
+                          <span className="text-[10px] font-bold uppercase">100% Secure · Official · Paperless</span>
                         </div>
-                        <div className="flex-1 text-left">
-                          <p className="text-sm font-bold">{type.id}</p>
-                          {type.desc && <p className="text-[10px] text-muted-foreground">{type.desc}</p>}
-                        </div>
-                        <div className={`h-5 w-5 rounded-full border-2 flex items-center justify-center ${selectedIdType === type.id ? "border-primary bg-primary" : "border-muted"}`}>
-                          {selectedIdType === type.id && <div className="h-2 w-2 rounded-full bg-white" />}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
 
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Upload ID Front</p>
-                    <button 
-                      onClick={() => setIdUploaded(true)}
-                      className={`w-full aspect-video rounded-3xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-all ${idUploaded ? "border-safety bg-safety/5 text-safety" : "border-border bg-secondary/50 text-muted-foreground hover:bg-secondary"}`}
+                        <div className="space-y-4 pt-2">
+                          {[
+                            { icon: Smartphone, title: "Instant verification", desc: "No manual uploads required", color: "bg-blue-500" },
+                            { icon: Lock, title: "Secure & private", desc: "Your data is safe with DigiLocker", color: "bg-indigo-600" },
+                            { icon: BadgeCheck, title: "Accepted by CozyStay", desc: "For a safe and verified stay", color: "bg-accent" },
+                          ].map((item, i) => (
+                            <div key={i} className="flex items-start gap-4">
+                              <div className={`h-8 w-8 rounded-full ${item.color} text-white grid place-items-center shrink-0`}>
+                                <item.icon className="h-4 w-4" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-bold">{item.title}</p>
+                                <p className="text-[11px] text-muted-foreground">{item.desc}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-green-500/5 rounded-2xl border border-green-500/10 flex items-start gap-3">
+                        <ShieldCheck className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-green-700 leading-relaxed font-medium">Your data is only used for verification and will not be stored.</p>
+                      </div>
+
+                      <div className="space-y-4">
+                        <button 
+                          onClick={startDigiLocker}
+                          className="w-full h-14 rounded-full bg-[#0f172a] text-white font-bold flex items-center justify-center gap-3 shadow-xl hover:opacity-95 transition-opacity"
+                        >
+                          <img src="https://upload.wikimedia.org/wikipedia/en/thumb/1/1a/DigiLocker_logo.svg/1200px-DigiLocker_logo.svg.png" alt="" className="h-5 invert" />
+                          Continue with DigiLocker
+                        </button>
+                        <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
+                          <Lock className="h-3 w-3" />
+                          You will be redirected to DigiLocker to securely verify your identity.
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 pt-4">
+                        <div className="p-4 rounded-3xl bg-secondary/50 border border-border/50 flex flex-col items-center text-center gap-2">
+                          <div className="h-10 w-10 rounded-full bg-primary text-white grid place-items-center">
+                            <Users className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold">For Adults</p>
+                            <p className="text-[9px] text-muted-foreground">Instant Aadhaar/Digilocker verification.</p>
+                          </div>
+                        </div>
+                        <div className="p-4 rounded-3xl bg-secondary/50 border border-border/50 flex flex-col items-center text-center gap-2 opacity-60">
+                          <div className="h-10 w-10 rounded-full bg-indigo-500 text-white grid place-items-center">
+                            <Users className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-bold">For Minors</p>
+                            <p className="text-[9px] text-muted-foreground">Minor's ID + Guardian verification.</p>
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {digiLockerStatus === "verifying" && (
+                    <div className="h-[400px] flex flex-col items-center justify-center gap-6 text-center">
+                      <div className="relative h-20 w-20">
+                        <motion.div 
+                          animate={{ rotate: 360 }}
+                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          className="absolute inset-0 rounded-full border-4 border-[#6366f1]/20 border-t-[#6366f1]"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <img src="https://upload.wikimedia.org/wikipedia/en/thumb/1/1a/DigiLocker_logo.svg/1200px-DigiLocker_logo.svg.png" className="h-8" alt="" />
+                        </div>
+                      </div>
+                      <div>
+                        <h3 className="text-xl font-bold">Verifying Identity</h3>
+                        <p className="text-sm text-muted-foreground mt-1">Connecting to DigiLocker secure servers...</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {digiLockerStatus === "success" && (
+                    <motion.div 
+                      initial={{ scale: 0.95, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="space-y-6"
                     >
-                      <Upload className={`h-6 w-6 ${idUploaded ? "text-safety" : "text-muted-foreground"}`} />
-                      <p className="text-sm font-bold">{idUploaded ? "ID Uploaded ✓" : "Tap to upload"}</p>
-                      <p className="text-[10px] opacity-60">JPG, PNG or PDF (Max 5MB)</p>
-                    </button>
-                  </div>
+                      <div className="flex items-center gap-2 justify-center px-4 py-2 bg-green-500/10 text-green-600 rounded-full w-fit mx-auto">
+                        <ShieldCheck className="h-4 w-4" />
+                        <span className="text-xs font-bold">Verified by DigiLocker</span>
+                      </div>
 
-                  <button onClick={next} disabled={!idUploaded} className="w-full h-14 rounded-full bg-primary text-primary-foreground font-bold flex items-center justify-center gap-2 shadow-xl shadow-primary/20 disabled:opacity-40">
-                    Continue <ChevronRight className="h-4 w-4" />
-                  </button>
+                      <div className="bg-green-500/5 border border-green-500/20 rounded-[32px] p-8 text-center space-y-6">
+                        <div className="h-20 w-20 bg-green-500 rounded-full mx-auto grid place-items-center text-white shadow-xl shadow-green-500/20">
+                          <ShieldCheck className="h-10 w-10" />
+                        </div>
+                        <div>
+                          <h3 className="text-2xl font-bold">Verification Successful!</h3>
+                          <p className="text-sm text-muted-foreground mt-1">Your identity has been verified successfully using DigiLocker.</p>
+                        </div>
 
-                  <div className="flex items-center justify-center gap-2 text-[10px] text-muted-foreground">
-                    <Lock className="h-3 w-3" />
-                    Your data is 100% secure and never shared with third parties.
-                  </div>
+                        <div className="bg-white rounded-2xl p-5 text-left space-y-4 shadow-sm border border-border/50">
+                          {[
+                            { label: "Name", value: "Rahul Sharma", icon: Users },
+                            { label: "Date of Birth", value: "12 May 1995", icon: Calendar },
+                            { label: "ID Verified", value: "Aadhaar Card", icon: ShieldCheck, success: true },
+                          ].map((field, i) => (
+                            <div key={i} className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <div className="h-8 w-8 rounded-lg bg-secondary grid place-items-center text-muted-foreground">
+                                  <field.icon className="h-4 w-4" />
+                                </div>
+                                <span className="text-sm text-muted-foreground font-medium">{field.label}</span>
+                              </div>
+                              <span className={`text-sm font-bold ${field.success ? "text-green-600" : ""}`}>{field.value}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-green-500/5 rounded-2xl border border-green-500/10 flex items-start gap-3">
+                        <ShieldCheck className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
+                        <p className="text-xs text-green-700 leading-relaxed font-medium">You can now continue with your booking.</p>
+                      </div>
+
+                      <button onClick={next} className="w-full h-14 rounded-full bg-[#0f172a] text-white font-bold flex items-center justify-center gap-2 shadow-xl">
+                        Continue to Booking <ChevronRight className="h-4 w-4" />
+                      </button>
+
+                      <div className="flex flex-col items-center gap-3 pt-2">
+                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                          <Lock className="h-3 w-3" />
+                          CozyStay protects your privacy and ensures a safe stay for everyone.
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
                 </div>
               )}
 
@@ -375,6 +495,4 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 function Share2(props: any) { return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>; }
-function Star(props: any) { return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>; }
-function Heart(props: any) { return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>; }
 function Car(props: any) { return <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9C2.1 11.6 2 11.8 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>; }
