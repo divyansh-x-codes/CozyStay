@@ -1,6 +1,19 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useState, ReactNode, useEffect } from "react";
+import { auth, db } from "@/lib/firebase";
+import { onAuthStateChanged, User as FirebaseUser } from "firebase/auth";
+import { doc, getDoc, setDoc, updateDoc } from "firebase/firestore";
 
-export type User = { name: string; email: string; phone: string; verified: boolean } | null;
+export type User = {
+  uid: string;
+  name: string;
+  email: string;
+  phone?: string;
+  dob?: string;
+  age?: number;
+  isVerified?: boolean;
+  isAdult?: boolean;
+} | null;
+
 export type Booking = {
   id: string;
   hotelId: string;
@@ -18,6 +31,7 @@ export type Notification = { id: string; title: string; desc: string; time: stri
 
 type Ctx = {
   user: User;
+  loading: boolean;
   login: (u: NonNullable<User>) => void;
   logout: () => void;
   favourites: string[];
@@ -26,6 +40,7 @@ type Ctx = {
   addBooking: (b: Booking) => void;
   notifications: Notification[];
   markAllRead: () => void;
+  verifyWithDigiLocker: (dob: string) => Promise<void>;
   search: { location: string; checkIn: string; checkOut: string; guests: number; rooms: number };
   setSearch: (s: Ctx["search"]) => void;
   sosOpen: boolean;
@@ -36,7 +51,8 @@ type Ctx = {
 const AppCtx = createContext<Ctx | null>(null);
 
 export const AppProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User>({ name: "Aarav Sharma", email: "aarav@gmail.com", phone: "+91 98765 43210", verified: true });
+  const [user, setUser] = useState<User>(null);
+  const [loading, setLoading] = useState(true);
   const [favourites, setFavourites] = useState<string[]>(["sea-breeze"]);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([
@@ -46,11 +62,62 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const [search, setSearch] = useState({ location: "Goa, India", checkIn: "29 Apr 2026", checkOut: "30 Apr 2026", guests: 2, rooms: 1 });
   const [sosOpen, setSosOpen] = useState(false);
 
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        const userDoc = await getDoc(doc(db, "users", fbUser.uid));
+        if (userDoc.exists()) {
+          setUser(userDoc.data() as User);
+        } else {
+          const newUser = {
+            uid: fbUser.uid,
+            name: fbUser.displayName || "Cozy Traveler",
+            email: fbUser.email || "",
+            isVerified: false,
+            isAdult: false
+          };
+          await setDoc(doc(db, "users", fbUser.uid), newUser);
+          setUser(newUser as User);
+        }
+      } else {
+        setUser(null);
+      }
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  const calculateAge = (dobString: string) => {
+    const birthDate = new Date(dobString);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const m = today.getMonth() - birthDate.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  };
+
+  const verifyWithDigiLocker = async (dob: string) => {
+    if (!user) return;
+    const age = calculateAge(dob);
+    const isAdult = age >= 18;
+    const updates = {
+      dob,
+      age,
+      isVerified: true,
+      isAdult
+    };
+    await updateDoc(doc(db, "users", user.uid), updates);
+    setUser({ ...user, ...updates });
+  };
+
   return (
     <AppCtx.Provider value={{
       user,
+      loading,
       login: (u) => setUser(u),
-      logout: () => setUser(null),
+      logout: () => auth.signOut(),
       favourites,
       toggleFavourite: (id) => setFavourites((f) => f.includes(id) ? f.filter(x => x !== id) : [...f, id]),
       bookings,
@@ -63,6 +130,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       },
       notifications,
       markAllRead: () => setNotifications((ns) => ns.map(n => ({ ...n, unread: false }))),
+      verifyWithDigiLocker,
       search,
       setSearch,
       sosOpen,
@@ -75,7 +143,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 };
 
 export const useApp = () => {
-  const c = useContext(AppCtx);
-  if (!c) throw new Error("useApp must be used inside AppProvider");
-  return c;
+  const context = useContext(AppCtx);
+  if (!context) throw new Error("useApp must be used within AppProvider");
+  return context;
 };

@@ -1,5 +1,5 @@
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { ChevronLeft, BadgeCheck, ShieldCheck, CreditCard, Smartphone, Building2, Lock, X, Smartphone as PhoneIcon, Wallet, ChevronRight, Upload, Users, Calendar, Heart, Star } from "lucide-react";
+import { ChevronLeft, BadgeCheck, ShieldCheck, CreditCard, Smartphone, Building2, Lock, X, Smartphone as PhoneIcon, Wallet, ChevronRight, Upload, Users, Calendar, Heart, Star, ShieldAlert } from "lucide-react";
 import AppShell from "@/components/cozy/AppShell";
 import { getHotel } from "@/data/hotels";
 import { useApp } from "@/context/AppContext";
@@ -11,13 +11,14 @@ export default function Booking() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const hotel = getHotel(id || "");
-  const { user, addBooking, search } = useApp();
+  const { user, addBooking, search, verifyWithDigiLocker, loading } = useApp();
   
   const [step, setStep] = useState(1);
   const [minor, setMinor] = useState(searchParams.get("minor") === "true");
   const [selectedIdType, setSelectedIdType] = useState("Aadhaar Card");
   const [paymentMethod, setPaymentMethod] = useState("UPI");
-  const [digiLockerStatus, setDigiLockerStatus] = useState<"idle" | "verifying" | "success">("idle");
+  const [digiLockerStatus, setDigiLockerStatus] = useState<"idle" | "verifying" | "dob-input" | "success">("idle");
+  const [dob, setDob] = useState("");
   
   // Form State
   const [formData, setFormData] = useState({
@@ -38,9 +39,16 @@ export default function Booking() {
   const startDigiLocker = () => {
     setDigiLockerStatus("verifying");
     setTimeout(() => {
-      setDigiLockerStatus("success");
-      setIdUploaded(true);
-    }, 2000);
+      setDigiLockerStatus("dob-input");
+    }, 1500);
+  };
+
+  const handleVerify = async () => {
+    if (!dob) return;
+    setDigiLockerStatus("verifying");
+    await verifyWithDigiLocker(dob);
+    setDigiLockerStatus("success");
+    setIdUploaded(true);
   };
 
   if (!hotel) return null;
@@ -48,7 +56,11 @@ export default function Booking() {
   const total = hotel.price + taxes;
 
   const next = () => {
-    if (step === 2 && !minor) {
+    if (step === 2 && !user?.isAdult) {
+      // Handled by restricted UI
+      return;
+    }
+    if (step === 2 && user?.isAdult) {
       setStep(4); // Skip guardian for adults
     } else {
       setStep((s) => s + 1);
@@ -56,7 +68,7 @@ export default function Booking() {
   };
   
   const back = () => {
-    if (step === 4 && !minor) {
+    if (step === 4 && user?.isAdult) {
       setStep(2);
     } else if (step === 1) {
       navigate(-1);
@@ -193,7 +205,7 @@ export default function Booking() {
                 <div className="space-y-6">
                   <h2 className="text-2xl font-bold font-display">Verify your ID</h2>
                   
-                  {digiLockerStatus === "idle" && (
+                  {digiLockerStatus === "idle" && !user?.isVerified && (
                     <>
                       <p className="text-sm text-muted-foreground -mt-4">
                         We use DigiLocker to instantly verify your identity. It's secure, fast and paperless.
@@ -252,27 +264,6 @@ export default function Booking() {
                           You will be redirected to DigiLocker to securely verify your identity.
                         </div>
                       </div>
-
-                      <div className="grid grid-cols-2 gap-3 pt-4">
-                        <div className="p-4 rounded-3xl bg-secondary/50 border border-border/50 flex flex-col items-center text-center gap-2">
-                          <div className="h-10 w-10 rounded-full bg-primary text-white grid place-items-center">
-                            <Users className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold">For Adults</p>
-                            <p className="text-[9px] text-muted-foreground">Instant Aadhaar/Digilocker verification.</p>
-                          </div>
-                        </div>
-                        <div className="p-4 rounded-3xl bg-secondary/50 border border-border/50 flex flex-col items-center text-center gap-2 opacity-60">
-                          <div className="h-10 w-10 rounded-full bg-indigo-500 text-white grid place-items-center">
-                            <Users className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <p className="text-xs font-bold">For Minors</p>
-                            <p className="text-[9px] text-muted-foreground">Minor's ID + Guardian verification.</p>
-                          </div>
-                        </div>
-                      </div>
                     </>
                   )}
 
@@ -295,7 +286,35 @@ export default function Booking() {
                     </div>
                   )}
 
-                  {digiLockerStatus === "success" && (
+                  {digiLockerStatus === "dob-input" && (
+                    <div className="space-y-6">
+                      <div className="p-6 rounded-3xl bg-secondary/50 space-y-4">
+                        <div className="h-12 w-12 rounded-full bg-[#6366f1] grid place-items-center text-white mb-2">
+                          <Calendar className="h-6 w-6" />
+                        </div>
+                        <h3 className="text-lg font-bold">Please confirm your DOB</h3>
+                        <p className="text-xs text-muted-foreground">DigiLocker requires your Date of Birth to verify age eligibility.</p>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-bold text-muted-foreground uppercase ml-1">Date of Birth</label>
+                          <input 
+                            type="date" 
+                            value={dob}
+                            onChange={(e) => setDob(e.target.value)}
+                            className="w-full h-14 px-5 rounded-2xl bg-white border border-border outline-none focus:ring-4 focus:ring-primary/5 transition-all font-bold"
+                          />
+                        </div>
+                      </div>
+                      <button 
+                        disabled={!dob}
+                        onClick={handleVerify}
+                        className="w-full h-14 rounded-full bg-primary text-primary-foreground font-bold text-lg shadow-xl disabled:opacity-40"
+                      >
+                        Confirm & Verify
+                      </button>
+                    </div>
+                  )}
+
+                  {(digiLockerStatus === "success" || user?.isVerified) && (
                     <motion.div 
                       initial={{ scale: 0.95, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
@@ -306,49 +325,75 @@ export default function Booking() {
                         <span className="text-xs font-bold">Verified by DigiLocker</span>
                       </div>
 
-                      <div className="bg-green-500/5 border border-green-500/20 rounded-[32px] p-8 text-center space-y-6">
-                        <div className="h-20 w-20 bg-green-500 rounded-full mx-auto grid place-items-center text-white shadow-xl shadow-green-500/20">
-                          <ShieldCheck className="h-10 w-10" />
-                        </div>
-                        <div>
-                          <h3 className="text-2xl font-bold">Verification Successful!</h3>
-                          <p className="text-sm text-muted-foreground mt-1">Your identity has been verified successfully using DigiLocker.</p>
-                        </div>
+                      {user?.isAdult ? (
+                        <div className="bg-green-500/5 border border-green-500/20 rounded-[32px] p-8 text-center space-y-6">
+                          <div className="h-20 w-20 bg-green-500 rounded-full mx-auto grid place-items-center text-white shadow-xl shadow-green-500/20">
+                            <ShieldCheck className="h-10 w-10" />
+                          </div>
+                          <div>
+                            <h3 className="text-2xl font-bold">Verification Successful!</h3>
+                            <p className="text-sm text-muted-foreground mt-1">Your identity has been verified successfully as an adult.</p>
+                          </div>
 
-                        <div className="bg-white rounded-2xl p-5 text-left space-y-4 shadow-sm border border-border/50">
-                          {[
-                            { label: "Name", value: "Rahul Sharma", icon: Users },
-                            { label: "Date of Birth", value: "12 May 1995", icon: Calendar },
-                            { label: "ID Verified", value: "Aadhaar Card", icon: ShieldCheck, success: true },
-                          ].map((field, i) => (
-                            <div key={i} className="flex items-center justify-between">
-                              <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 rounded-lg bg-secondary grid place-items-center text-muted-foreground">
-                                  <field.icon className="h-4 w-4" />
+                          <div className="bg-white rounded-2xl p-5 text-left space-y-4 shadow-sm border border-border/50">
+                            {[
+                              { label: "Name", value: user.name, icon: Users },
+                              { label: "Age", value: `${user.age} Years`, icon: ShieldCheck },
+                              { label: "Status", value: "Verified Adult", icon: BadgeCheck, success: true },
+                            ].map((field, i) => (
+                              <div key={i} className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="h-8 w-8 rounded-lg bg-secondary grid place-items-center text-muted-foreground">
+                                    <field.icon className="h-4 w-4" />
+                                  </div>
+                                  <span className="text-sm text-muted-foreground font-medium">{field.label}</span>
                                 </div>
-                                <span className="text-sm text-muted-foreground font-medium">{field.label}</span>
+                                <span className={`text-sm font-bold ${field.success ? "text-green-600" : ""}`}>{field.value}</span>
                               </div>
-                              <span className={`text-sm font-bold ${field.success ? "text-green-600" : ""}`}>{field.value}</span>
-                            </div>
-                          ))}
+                            ))}
+                          </div>
+                          <button onClick={next} className="w-full h-14 rounded-full bg-[#0f172a] text-white font-bold flex items-center justify-center gap-2 shadow-xl">
+                            Continue to Booking <ChevronRight className="h-4 w-4" />
+                          </button>
                         </div>
-                      </div>
-
-                      <div className="p-4 bg-green-500/5 rounded-2xl border border-green-500/10 flex items-start gap-3">
-                        <ShieldCheck className="h-4 w-4 text-green-600 shrink-0 mt-0.5" />
-                        <p className="text-xs text-green-700 leading-relaxed font-medium">You can now continue with your booking.</p>
-                      </div>
-
-                      <button onClick={next} className="w-full h-14 rounded-full bg-[#0f172a] text-white font-bold flex items-center justify-center gap-2 shadow-xl">
-                        Continue to Booking <ChevronRight className="h-4 w-4" />
-                      </button>
-
-                      <div className="flex flex-col items-center gap-3 pt-2">
-                        <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                          <Lock className="h-3 w-3" />
-                          CozyStay protects your privacy and ensures a safe stay for everyone.
+                      ) : (
+                        <div className="bg-danger/5 border border-danger/20 rounded-[32px] p-8 text-center space-y-6">
+                          <div className="h-20 w-20 bg-danger rounded-full mx-auto grid place-items-center text-white shadow-xl shadow-danger/20">
+                            <ShieldAlert className="h-10 w-10" />
+                          </div>
+                          <div>
+                            <h3 className="text-2xl font-bold">Access Restricted</h3>
+                            <p className="text-sm text-muted-foreground mt-2 px-4 leading-relaxed">
+                              Users under 18 cannot book rooms without guardian verification.
+                            </p>
+                          </div>
+                          <div className="bg-white rounded-2xl p-5 text-left space-y-4 shadow-sm border border-border/50">
+                            {[
+                              { label: "Name", value: user.name, icon: Users },
+                              { label: "Age", value: `${user.age} Years`, icon: ShieldCheck },
+                              { label: "Eligibility", value: "Minor", icon: X, danger: true },
+                            ].map((field, i) => (
+                              <div key={i} className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="h-8 w-8 rounded-lg bg-secondary grid place-items-center text-muted-foreground">
+                                    <field.icon className="h-4 w-4" />
+                                  </div>
+                                  <span className="text-sm text-muted-foreground font-medium">{field.label}</span>
+                                </div>
+                                <span className={`text-sm font-bold ${field.danger ? "text-danger" : ""}`}>{field.value}</span>
+                              </div>
+                            ))}
+                          </div>
+                          <div className="grid grid-cols-1 gap-3 pt-2">
+                            <button onClick={() => setStep(3)} className="w-full h-14 rounded-full bg-primary text-primary-foreground font-bold shadow-lg">
+                              Continue with Guardian
+                            </button>
+                            <button onClick={() => navigate("/")} className="w-full h-12 rounded-full border border-border font-bold text-sm">
+                              Go Back
+                            </button>
+                          </div>
                         </div>
-                      </div>
+                      )}
                     </motion.div>
                   )}
                 </div>
