@@ -19,9 +19,11 @@ const features = [
 const locations = ["Mumbai, Maharashtra", "Delhi, NCR", "Jaipur, Rajasthan", "Goa, India", "Munnar, Kerala", "Udaipur, Rajasthan", "Rishikesh, Uttarakhand", "Bangalore, Karnataka", "Manali, Himachal"];
 
 export default function Home() {
-  const { search, setSearch } = useApp();
+  const { search, setSearch, notifications, markAllRead } = useApp();
   const navigate = useNavigate();
-  const [picker, setPicker] = useState<"location" | "date" | "guests" | null>(null);
+  const [picker, setPicker] = useState<"location" | "date" | "guests" | "notifications" | null>(null);
+
+  const hasUnread = notifications.some(n => n.unread);
 
   const updateSearch = (updates: Partial<typeof search>) => {
     setSearch({ ...search, ...updates });
@@ -35,20 +37,29 @@ export default function Home() {
         <div className="absolute inset-0 h-full bg-gradient-to-b from-black/40 via-black/20 to-black/60" />
         <div className="relative px-5 pt-3">
           <div className="flex items-center justify-between">
-            <button className="h-8 w-8 grid place-items-center rounded-full bg-white/10 backdrop-blur"><Menu className="h-4 w-4" /></button>
-            <Logo light />
-            <button className="h-8 w-8 grid place-items-center rounded-full bg-white/10 backdrop-blur relative">
-              <Bell className="h-4 w-4" />
-              <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 rounded-full bg-accent" />
+            <div className="flex items-center gap-2">
+              <Logo light />
+            </div>
+            <button 
+              onClick={() => setPicker("notifications")}
+              className="h-9 w-9 grid place-items-center rounded-full bg-white/10 backdrop-blur-md border border-white/10 relative"
+            >
+              <Bell className="h-4.5 w-4.5" />
+              {hasUnread && <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-accent border-2 border-black/20" />}
             </button>
           </div>
-          <div className="mt-5">
-            <h1 className="font-display font-bold text-2xl leading-[1.1]">
-              Feel safe. Stay <span className="text-accent">cozy.</span>
-            </h1>
-            <p className="mt-0.5 text-xs text-white/80 max-w-[200px]">
-              Verified stays. Total peace of mind.
-            </p>
+          <div className="mt-8">
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+            >
+              <h1 className="font-display font-bold text-3xl leading-[1.1]">
+                Feel safe. Stay <span className="text-accent">cozy.</span>
+              </h1>
+              <p className="mt-1 text-xs text-white/80 max-w-[220px]">
+                Verified stays with total peace of mind for every traveler.
+              </p>
+            </motion.div>
           </div>
         </div>
       </section>
@@ -160,12 +171,35 @@ export default function Home() {
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="font-display font-bold text-xl uppercase tracking-wider">
-                  {picker === "location" ? "Select Location" : picker === "date" ? "Select Dates" : "Guests & Rooms"}
+                  {picker === "location" ? "Select Location" : picker === "date" ? "Select Dates" : picker === "guests" ? "Guests & Rooms" : "Notifications"}
                 </h2>
                 <button onClick={() => setPicker(null)} className="h-10 w-10 rounded-full bg-secondary grid place-items-center hover:bg-secondary/80">
                   <X className="h-5 w-5" />
                 </button>
               </div>
+
+              {picker === "notifications" && (
+                <div className="space-y-3">
+                  {notifications.map((n) => (
+                    <div key={n.id} className={`p-4 rounded-2xl border ${n.unread ? "bg-accent/5 border-accent/20" : "bg-secondary border-transparent"} flex items-start gap-3`}>
+                      <div className={`h-2 w-2 rounded-full mt-1.5 shrink-0 ${n.unread ? "bg-accent" : "bg-muted-foreground/30"}`} />
+                      <div className="flex-1">
+                        <div className="flex items-center justify-between">
+                          <p className="font-bold text-sm">{n.title}</p>
+                          <span className="text-[10px] text-muted-foreground">{n.time}</span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5">{n.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                  <button 
+                    onClick={() => { markAllRead(); }} 
+                    className="w-full h-12 rounded-full bg-primary text-primary-foreground font-bold mt-4 shadow-soft"
+                  >
+                    Mark all as read
+                  </button>
+                </div>
+              )}
 
               {picker === "location" && (
                 <div className="space-y-2">

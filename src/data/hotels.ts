@@ -56,7 +56,7 @@ export const hotels: Hotel[] = [
     isVerified: true,
     safetyScore: 96,
     has360: true,
-    sketchfabId: "3f99005c08fd4fbdbde571b61b0899cd",
+    sketchfabId: "5c42a8f833de415f9f5419b9c4bf090e",
     description: "Glass-walled lagoon villa with a private deck and 24/7 concierge.",
     rooms: [
       { id: "r1", name: "Lagoon View Room", price: 3890, beds: "1 Queen Bed", size: "300 sq.ft", guests: 2, safety: 96 },
